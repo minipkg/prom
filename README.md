@@ -37,18 +37,17 @@ func main() {
     server := &fasthttp.Server{}
     
     r := router.New()
-    regionController := controller.NewRegionController(r, a.Domain.Region)
     
     r.GET("/live", LiveHandler)
     r.GET("/ready", LiveHandler)
     r.GET("/metrics", prometheus_utils.GetFasthttpHandler())
-    r.GET("/api/v1/region-id", regionController.GetRegionID)
+    r.GET("/api/v1/region-id", GetRegionID)      //  handler is just for example
 
-    router := RecoverInterceptorMiddleware(RequestIdInterceptorMiddleware(metrics.FasthttpRouterMetricsMiddleware(r.Handler)))
+    r = RecoverInterceptorMiddleware(RequestIdInterceptorMiddleware(metrics.FasthttpRouterMetricsMiddleware(r.Handler)))
     
-    server.Handler = router
+    server.Handler = r
         
-    server.ListenAndServe(config.Addr)
+    server.ListenAndServe(config.Addr)           //  address from config  is just for example
 }
 
 func RecoverInterceptorMiddleware(next fasthttp.RequestHandler) fasthttp.RequestHandler {
@@ -85,158 +84,67 @@ func LiveHandler(rctx *fasthttp.RequestCtx) {
 
 ```
 
-#### with router "github.com/fasthttp/router"
+#### with router "github.com/qiangxue/fasthttp-routing"
 ```go
 import (
-	"context"
-	"fmt"
-	"log"
+    "context"
+    "fmt"
+    "github.com/pkg/errors"
+    "net/http"
+    "time"
 
-	"github.com/minipkg/nats"
-	"github.com/nats-io/nats.go"
-)
-
-const (
-	queueGroupName = "groupExample"
-	consumerName   = "consumerExample"
+    prometheus_utils "github.com/minipkg/prometheus-utils"
+    routing "github.com/qiangxue/fasthttp-routing"
+    "github.com/satori/go.uuid"
+    "github.com/valyala/fasthttp"
 )
 
 func main() {
-	ctx, cancel := context.WithCancel(context.Background())
+	metrics := prometheus_utils.NewHttpServerMetrics("chudo-app")
 
-	n, err := mp_nats.New(&mp_nats.Config{})
-	if err != nil {
-		log.Fatal(err)
-	}
+	server := &fasthttp.Server{}
 
-	_, err = n.AddStreamIfNotExists(&nats.StreamConfig{
-		Name:     streamName,
-		Subjects: []string{"test.>"},
-	})
-	if err != nil {
-		log.Fatalf("natsWriter error: %q", err.Error())
-	}
+	r := routing.New()
 
-	_, _, delFunc, err := n.AddPushConsumerIfNotExists(streamName, &nats.ConsumerConfig{
-		Name:    consumerName,
-		Durable: consumerName,
-		//DeliverGroup:  queueGroupName, // if you want queue group
-		FilterSubject: subjectName,
-	}, natsMsgHandler)
-	if err != nil {
-		log.Fatalf("natsWriter error: %q", err.Error())
-	}
+	r.Use(RecoverInterceptorMiddleware, RequestIdInterceptorMiddleware)
+	r.Get("/live", LiveHandler)
+	r.Get("/ready", LiveHandler)
+	r.Get("/metrics", prometheus_utils.GetFasthttpRoutingHandler())
+	api := r.Group("/api/v1")
+	api.Use(metrics.FasthttpRoutingMetricsMiddleware)
+	api.Get("/api/v1/region-id", GetRegionID)      //  handler is just for example
+	server.Handler = r.HandleRequest
+
+	server.ListenAndServe(config.Addr)             //  address from config  is just for example
+}
+
+func RecoverInterceptorMiddleware(rctx *routing.Context) error {
 	defer func() {
-		if err = delFunc(); err != nil {
-			log.Fatalf("delConsumerAndSubscription error: %q", err.Error())
+		if r := recover(); r != nil {
+			wblogger.Error(rctx, "PanicInterceptor", fmt.Errorf("%v", r))
+			fasthttp_tools.InternalError(rctx.RequestCtx, errors.Errorf("%v", r))
 		}
 	}()
-
-	<-ctx.Done()
-}
-
-func natsMsgHandler(msg *nats.Msg) {
-    msg.Ack()
-	fmt.Println(string(msg.Data))
-}
-```
-
-### Pull Consumer
-```go
-import (
-	"context"
-	"fmt"
-	"log"
-	"time"
-
-	"github.com/pkg/errors"
-
-	"github.com/minipkg/nats"
-	"github.com/nats-io/nats.go"
-)
-
-const (
-	consumerName        = "consumerExample"
-	defaultRequestBatch = 1000
-	defaultMaxWait      = 3 * time.Second
-	duration            = 2 * time.Second
-)
-
-
-func main() {
-	ctx, cancel := context.WithCancel(context.Background())
-
-	n, err := mp_nats.New(&mp_nats.Config{})
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	_, err = n.AddStreamIfNotExists(&nats.StreamConfig{
-		Name:     streamName,
-		Subjects: []string{"test.>"},
-	})
-	if err != nil {
-		log.Fatalf("natsWriter error: %q", err.Error())
-	}
-
-	_, subs, delFunc, err := n.AddPullConsumerIfNotExists(streamName, &nats.ConsumerConfig{
-		Name:    consumerName,
-		Durable: consumerName,
-		FilterSubject: subjectName,
-	})
-	if err != nil {
-		log.Fatalf("natsWriter error: %q", err.Error())
-	}
-	defer func() {
-		if err = delFunc(); err != nil {
-			log.Fatalf("delConsumerAndSubscription error: %q", err.Error())
-		}
-	}()
-
-    err = listenNatsSubscription(ctx, subs, 0)
-	if err != nil {
-		log.Fatalf("listenNatsSubscription error: %q", err.Error()))
-		return
-	}
-}
-
-func listenNatsSubscription(ctx context.Context, subs *nats.Subscription, requestBatch uint) error {
-	if requestBatch == 0 {
-		requestBatch = defaultRequestBatch
-	}
-OuterLoop:
-	for {
-		select {
-		case <-ctx.Done():
-			break OuterLoop
-		default:
-		}
-
-		bmsgs, err := subs.Fetch(int(requestBatch), nats.MaxWait(defaultMaxWait))
-		if err != nil {
-			if !errors.Is(err, nats.ErrTimeout) {
-				return err
-			}
-
-			t := time.NewTimer(duration)
-			select {
-			case <-ctx.Done():
-				break OuterLoop
-			case <-t.C:
-			}
-
-		}
-		for _, msg := range bmsgs {
-			if err = msg.Ack(); err != nil {
-				return err
-			}
-			natsMsgHandler(msg)
-		}
-	}
+	rctx.Next()
 	return nil
 }
 
-func natsMsgHandler(msg *nats.Msg) {
-	fmt.Println(string(msg.Data))
+func RequestIdInterceptorMiddleware(rctx *routing.Context) error {
+	if requestId := rctx.Get(RequestIdKey); requestId != nil {
+		return nil
+	}
+	if requestIdB := rctx.RequestCtx.Request.Header.Peek(RequestIdKey); requestIdB != nil {
+		rctx.Set(RequestIdKey, string(requestIdB))
+		return nil
+	}
+	rctx.Set(RequestIdKey, uuid.NewV4().String())
+	return nil
 }
+
+func LiveHandler(rctx *routing.Context) error {
+	rctx.SetStatusCode(http.StatusNoContent)
+	return nil
+}
+
 ```
+
