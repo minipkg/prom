@@ -95,7 +95,7 @@ func GetFasthttpRoutingHandler() routing.Handler {
 }
 
 // Middleware with metrics for "github.com/qiangxue/fasthttp-routing"
-func (m *httpServerMetric) FasthttpRoutingMetricsMiddleware(rctx *routing.Context) {
+func (m *httpServerMetric) FasthttpRoutingMetricsMiddleware(rctx *routing.Context) error {
 	now := time.Now()
 
 	rctx.Next()
@@ -111,4 +111,6 @@ func (m *httpServerMetric) FasthttpRoutingMetricsMiddleware(rctx *routing.Contex
 
 	m.Inc(method, status, path, client)
 	m.WriteTiming(now, method, status, path, client)
+
+	return nil
 }
