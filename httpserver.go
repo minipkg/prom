@@ -1,7 +1,9 @@
 package mp_prometheus
 
 import (
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	routing "github.com/qiangxue/fasthttp-routing"
+	"github.com/valyala/fasthttp/fasthttpadaptor"
 	"strconv"
 	"time"
 
@@ -58,8 +60,13 @@ func (m *httpServerMetric) WriteTiming(startTime time.Time, method, code, path, 
 	m.latency.WithLabelValues(method, code, path, client).Observe(timeFromStart(startTime))
 }
 
-// metrics for "github.com/fasthttp/router"
-func (m *httpServerMetric) FasthttpRouterMetrics(next fasthttp.RequestHandler) fasthttp.RequestHandler {
+// Handler with metrics for "github.com/fasthttp/router"
+func GetFasthttpHandler() fasthttp.RequestHandler {
+	return fasthttpadaptor.NewFastHTTPHandler(promhttp.Handler())
+}
+
+// Middleware with metrics for "github.com/fasthttp/router"
+func (m *httpServerMetric) FasthttpRouterMetricsMiddleware(next fasthttp.RequestHandler) fasthttp.RequestHandler {
 	return func(ctx *fasthttp.RequestCtx) {
 		now := time.Now()
 
@@ -79,8 +86,16 @@ func (m *httpServerMetric) FasthttpRouterMetrics(next fasthttp.RequestHandler) f
 	}
 }
 
-// metrics for "github.com/qiangxue/fasthttp-routing"
-func (m *httpServerMetric) FasthttpRoutingMetrics(rctx *routing.Context) {
+// Handler with metrics for "github.com/qiangxue/fasthttp-routing"
+func GetFasthttpRoutingHandler() routing.Handler {
+	return func(rctx *routing.Context) error {
+		fasthttpadaptor.NewFastHTTPHandler(promhttp.Handler())(rctx.RequestCtx)
+		return nil
+	}
+}
+
+// Middleware with metrics for "github.com/qiangxue/fasthttp-routing"
+func (m *httpServerMetric) FasthttpRoutingMetricsMiddleware(rctx *routing.Context) {
 	now := time.Now()
 
 	rctx.Next()
