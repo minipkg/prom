@@ -1,5 +1,5 @@
 // nolint
-package mp_prometheus
+package prometheus_utils
 
 import (
 	"time"

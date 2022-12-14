@@ -1,4 +1,4 @@
-package mp_prometheus
+package prometheus_utils
 
 import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
