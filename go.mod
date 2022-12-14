@@ -1,4 +1,4 @@
-module github.com/minipkg/prometheus
+module github.com/minipkg/prometheus-utils
 
 go 1.18
 
