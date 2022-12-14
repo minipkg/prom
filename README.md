@@ -18,6 +18,18 @@ go get github.com/minipkg/prometheus-utils
 
 #### with router "github.com/fasthttp/router"
 ```go
+// create httpServerMetric object
+metrics := prometheus_utils.NewHttpServerMetrics("chudo-app")
+
+// set handler for Prometheus
+r.GET("/metrics", prometheus_utils.GetFasthttpHandler())
+
+// set the middleware for metrics for http handlers
+r = metrics.FasthttpRouterMetricsMiddleware(r.Handler))
+```
+
+#### Example
+```go
 import (
     "context"
     "fmt"
@@ -85,6 +97,18 @@ func LiveHandler(rctx *fasthttp.RequestCtx) {
 ```
 
 #### with router "github.com/qiangxue/fasthttp-routing"
+```go
+// create httpServerMetric object
+metrics := prometheus_utils.NewHttpServerMetrics("chudo-app")
+
+// set handler for Prometheus
+r.Get("/metrics", prometheus_utils.GetFasthttpRoutingHandler())
+
+// set the middleware for metrics for http handlers
+r.Use(metrics.FasthttpRoutingMetricsMiddleware)
+```
+
+### Example
 ```go
 import (
     "context"
