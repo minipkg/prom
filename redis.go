@@ -47,5 +47,5 @@ func (h *redisMetrics) Inc(query, success string) {
 // WriteTiming writes time elapsed since the startTime.
 // for the given "query" and "success" fields
 func (h *redisMetrics) WriteTiming(startTime time.Time, query, success string) {
-	h.latency.WithLabelValues(query, success).Observe(timeFromStart(startTime))
+	h.latency.WithLabelValues(query, success).Observe(SecondsFromStart(startTime))
 }

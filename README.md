@@ -53,7 +53,7 @@ func main() {
     r.GET("/live", LiveHandler)
     r.GET("/ready", LiveHandler)
     r.GET("/metrics", prometheus_utils.GetFasthttpHandler())
-    r.GET("/api/v1/region-id", GetRegionID)      //  handler is just for example
+    r.GET("/api/v1/test", TestHandler)      //  handler is just for example
 
     r = RecoverInterceptorMiddleware(RequestIdInterceptorMiddleware(metrics.FasthttpRouterMetricsMiddleware(r.Handler)))
     
@@ -108,7 +108,7 @@ r.Get("/metrics", prometheus_utils.GetFasthttpRoutingHandler())
 r.Use(metrics.FasthttpRoutingMetricsMiddleware)
 ```
 
-### Example
+#### Example
 ```go
 import (
     "context"
@@ -136,7 +136,7 @@ func main() {
 	r.Get("/metrics", prometheus_utils.GetFasthttpRoutingHandler())
 	api := r.Group("/api/v1")
 	api.Use(metrics.FasthttpRoutingMetricsMiddleware)
-	api.Get("/api/v1/region-id", GetRegionID)      //  handler is just for example
+	api.Get("/test", TestHandler)      //  handler is just for example
 	server.Handler = r.HandleRequest
 
 	server.ListenAndServe(config.Addr)             //  address from config  is just for example
@@ -162,6 +162,7 @@ func RequestIdInterceptorMiddleware(rctx *routing.Context) error {
 		return nil
 	}
 	rctx.Set(RequestIdKey, uuid.NewV4().String())
+    rctx.Next()
 	return nil
 }
 

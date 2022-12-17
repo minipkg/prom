@@ -47,5 +47,5 @@ func (h *httpClientMetric) Inc(method, code, path string) {
 // WriteTiming writes time elapsed since the startTime.
 // method, code and path are label values for "method", "status" and "path" fields
 func (h *httpClientMetric) WriteTiming(startTime time.Time, method, code, path string) {
-	h.latency.WithLabelValues(method, code, path).Observe(timeFromStart(startTime))
+	h.latency.WithLabelValues(method, code, path).Observe(SecondsFromStart(startTime))
 }

@@ -57,7 +57,7 @@ func (m *httpServerMetric) Inc(method, code, path, client string) {
 // WriteTiming writes time elapsed since the startTime.
 // method, code, path and client are label values for "method", "status", "path" and "client" fields
 func (m *httpServerMetric) WriteTiming(startTime time.Time, method, code, path, client string) {
-	m.latency.WithLabelValues(method, code, path, client).Observe(timeFromStart(startTime))
+	m.latency.WithLabelValues(method, code, path, client).Observe(SecondsFromStart(startTime))
 }
 
 // Handler with metrics for "github.com/fasthttp/router"

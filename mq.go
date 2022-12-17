@@ -48,5 +48,5 @@ func (h *mqMetrics) Inc(status, topic string) {
 // WriteTiming writes time elapsed since the startTime.
 // status, topic and path are label values for the "status" and "topic" fields
 func (h *mqMetrics) WriteTiming(startTime time.Time, status, topic string) {
-	h.time.WithLabelValues(status, topic).Observe(timeFromStart(startTime))
+	h.time.WithLabelValues(status, topic).Observe(SecondsFromStart(startTime))
 }
