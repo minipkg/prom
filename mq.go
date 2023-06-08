@@ -24,7 +24,7 @@ func NewMqMetrics(appName, host, subject string) *mqMetrics {
 	)
 
 	latencyCollector := prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name:        "msgs_latency",
+		Name:        "msgs_latency_seconds",
 		Help:        "How long it took to process the messages",
 		ConstLabels: prometheus.Labels{"app": appName, "host": host, "subject": subject},
 		Buckets:     []float64{200, 300, 400, 500, 600, 700, 800, 900, 1000, 1200, 1500, 2000},
@@ -48,5 +48,5 @@ func (h *mqMetrics) Inc(status, topic string) {
 // WriteTiming writes time elapsed since the startTime.
 // status, topic and path are label values for the "status" and "topic" fields
 func (h *mqMetrics) WriteTiming(startTime time.Time, status, topic string) {
-	h.time.WithLabelValues(status, topic).Observe(SecondsFromStart(startTime))
+	h.time.WithLabelValues(status, topic).Observe(MillisecondsFromStart(startTime))
 }

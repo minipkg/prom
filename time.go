@@ -7,5 +7,5 @@ func MillisecondsFromStart(start time.Time) float64 {
 }
 
 func SecondsFromStart(start time.Time) float64 {
-	return float64(time.Since(start).Seconds())
+	return float64(time.Since(start).Milliseconds()) / 1000
 }

@@ -23,7 +23,7 @@ func NewRedisMetrics(service string) *redisMetrics {
 	)
 
 	latencyCollector := prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name:        "redis_queries_latency",
+		Name:        "redis_queries_latency_seconds",
 		Help:        "How long it took to process the query",
 		ConstLabels: prometheus.Labels{"app": service},
 		Buckets:     []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20},
@@ -47,5 +47,5 @@ func (h *redisMetrics) Inc(query, success string) {
 // WriteTiming writes time elapsed since the startTime.
 // for the given "query" and "success" fields
 func (h *redisMetrics) WriteTiming(startTime time.Time, query, success string) {
-	h.latency.WithLabelValues(query, success).Observe(SecondsFromStart(startTime))
+	h.latency.WithLabelValues(query, success).Observe(MillisecondsFromStart(startTime))
 }
