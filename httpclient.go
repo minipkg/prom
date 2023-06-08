@@ -19,7 +19,7 @@ type httpClientMetric struct {
 
 var _ HttpClientMetric = (*httpClientMetric)(nil)
 
-func NewHttpClientMetrics(namespace, subsystem, service, host, remoteService string) *httpClientMetric {
+func NewHttpClientMetrics(namespace, subsystem, service, remoteService string) *httpClientMetric {
 	reqsCollector := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "client_reqs_count",
@@ -28,7 +28,6 @@ func NewHttpClientMetrics(namespace, subsystem, service, host, remoteService str
 				"namespace":      namespace,
 				"subsystem":      subsystem,
 				"service":        service,
-				"host":           host,
 				"remote_service": remoteService,
 			},
 		},
@@ -42,7 +41,6 @@ func NewHttpClientMetrics(namespace, subsystem, service, host, remoteService str
 			"namespace":      namespace,
 			"subsystem":      subsystem,
 			"service":        service,
-			"host":           host,
 			"remote_service": remoteService,
 		},
 		Buckets: []float64{200, 300, 400, 500, 600, 700, 800, 900, 1000, 1200, 1500, 2000},
