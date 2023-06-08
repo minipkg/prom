@@ -6,27 +6,44 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+type RedisMetrics interface {
+	Inc(query, success string)
+	WriteTiming(startTime time.Time, query, success string)
+}
+
 // redisMetrics is a struct that allows to write metrics of count and latency of redis queries
 type redisMetrics struct {
 	queries *prometheus.CounterVec
 	latency *prometheus.HistogramVec
 }
 
-func NewRedisMetrics(service string) *redisMetrics {
+var _ RedisMetrics = (*redisMetrics)(nil)
+
+func NewRedisMetrics(namespace, subsystem, service, host string) *redisMetrics {
 	queriesCollector := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name:        "redis_queries_count",
-			Help:        "How many queries processed",
-			ConstLabels: prometheus.Labels{"app": service},
+			Name: "redis_queries_count",
+			Help: "How many queries processed",
+			ConstLabels: prometheus.Labels{
+				"namespace": namespace,
+				"subsystem": subsystem,
+				"service":   service,
+				"host":      host,
+			},
 		},
 		[]string{"query", "success"},
 	)
 
 	latencyCollector := prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name:        "redis_queries_latency_seconds",
-		Help:        "How long it took to process the query",
-		ConstLabels: prometheus.Labels{"app": service},
-		Buckets:     []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20},
+		Name: "redis_queries_latency_milliseconds",
+		Help: "How long it took to process the query",
+		ConstLabels: prometheus.Labels{
+			"namespace": namespace,
+			"subsystem": subsystem,
+			"service":   service,
+			"host":      host,
+		},
+		Buckets: []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20},
 	},
 		[]string{"query", "success"},
 	)
