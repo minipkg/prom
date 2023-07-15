@@ -1,9 +1,14 @@
 package prometheus_utils
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	routing "github.com/qiangxue/fasthttp-routing"
+	"github.com/valyala/fasthttp"
+	"github.com/valyala/fasthttp/fasthttpadaptor"
 )
 
 type HttpServerMetric interface {
@@ -16,6 +21,10 @@ type httpServerMetric struct {
 	reqs    *prometheus.CounterVec
 	latency *prometheus.HistogramVec
 }
+
+const (
+	AuthClientKey = "http.client"
+)
 
 var _ HttpServerMetric = (*httpServerMetric)(nil)
 
@@ -65,4 +74,59 @@ func (h *httpServerMetric) Inc(method, code, path, client string) {
 // method, code, path and client are label values for "method", "status", "path" and "client" fields
 func (h *httpServerMetric) WriteTiming(startTime time.Time, method, code, path, client string) {
 	h.latency.WithLabelValues(method, code, path, client).Observe(MillisecondsFromStart(startTime))
+}
+
+// Handler with metrics for "github.com/fasthttp/router"
+func GetFasthttpHandler() fasthttp.RequestHandler {
+	return fasthttpadaptor.NewFastHTTPHandler(promhttp.Handler())
+}
+
+// Middleware with metrics for "github.com/fasthttp/router"
+func (m *httpServerMetric) FasthttpRouterMetricsMiddleware(next fasthttp.RequestHandler) fasthttp.RequestHandler {
+	return func(ctx *fasthttp.RequestCtx) {
+		now := time.Now()
+
+		next(ctx)
+
+		client := ""
+		if s, ok := ctx.UserValue(AuthClientKey).(string); ok {
+			client = s
+		}
+
+		status := strconv.Itoa(ctx.Response.StatusCode())
+		path := string(ctx.Path())
+		method := string(ctx.Method())
+
+		m.Inc(method, status, path, client)
+		m.WriteTiming(now, method, status, path, client)
+	}
+}
+
+// Handler with metrics for "github.com/qiangxue/fasthttp-routing"
+func GetFasthttpRoutingHandler() routing.Handler {
+	return func(rctx *routing.Context) error {
+		fasthttpadaptor.NewFastHTTPHandler(promhttp.Handler())(rctx.RequestCtx)
+		return nil
+	}
+}
+
+// Middleware with metrics for "github.com/qiangxue/fasthttp-routing"
+func (m *httpServerMetric) FasthttpRoutingMetricsMiddleware(rctx *routing.Context) error {
+	now := time.Now()
+
+	rctx.Next()
+
+	client := ""
+	if s, ok := rctx.UserValue(AuthClientKey).(string); ok {
+		client = s
+	}
+
+	status := strconv.Itoa(rctx.Response.StatusCode())
+	path := string(rctx.Path())
+	method := string(rctx.Method())
+
+	m.Inc(method, status, path, client)
+	m.WriteTiming(now, method, status, path, client)
+
+	return nil
 }
