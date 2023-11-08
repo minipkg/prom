@@ -2,6 +2,7 @@ package prometheus_utils
 
 import (
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -18,8 +19,9 @@ type HttpServerMetric interface {
 
 // httpServerMetrics is a struct that allows to write metrics of count and latency of http requests
 type httpServerMetric struct {
-	reqs    *prometheus.CounterVec
-	latency *prometheus.HistogramVec
+	isNeedToRemoveQueryInPath bool
+	reqs                      *prometheus.CounterVec
+	latency                   *prometheus.HistogramVec
 }
 
 const (
@@ -28,7 +30,7 @@ const (
 
 var _ HttpServerMetric = (*httpServerMetric)(nil)
 
-func NewHttpServerMetrics(namespace, subsystem, service string) *httpServerMetric {
+func NewHttpServerMetrics(namespace, subsystem, service string, isNeedToRemoveQueryInPath bool) *httpServerMetric {
 	reqsCollector := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "reqs_count",
@@ -58,21 +60,32 @@ func NewHttpServerMetrics(namespace, subsystem, service string) *httpServerMetri
 	prometheus.MustRegister(reqsCollector, latencyCollector)
 
 	return &httpServerMetric{
-		reqs:    reqsCollector,
-		latency: latencyCollector,
+		isNeedToRemoveQueryInPath: isNeedToRemoveQueryInPath,
+		reqs:                      reqsCollector,
+		latency:                   latencyCollector,
 	}
+}
+
+func (h *httpServerMetric) checkAndCutPath(path *string) {
+	if h.isNeedToRemoveQueryInPath {
+		return
+	}
+	*path = strings.Split(*path, "?")[0]
+	return
 }
 
 // Inc increases requests counter by one.
 //
 //	method, code, path and client are label values for "method", "status", "path" and "client" fields
 func (h *httpServerMetric) Inc(method, code, path, client string) {
+	h.checkAndCutPath(&path)
 	h.reqs.WithLabelValues(method, code, path, client).Inc()
 }
 
 // WriteTiming writes time elapsed since the startTime.
 // method, code, path and client are label values for "method", "status", "path" and "client" fields
 func (h *httpServerMetric) WriteTiming(startTime time.Time, method, code, path, client string) {
+	h.checkAndCutPath(&path)
 	h.latency.WithLabelValues(method, code, path, client).Observe(MillisecondsFromStart(startTime))
 }
 

@@ -1,6 +1,7 @@
 package prometheus_utils
 
 import (
+	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -13,13 +14,14 @@ type HttpClientMetric interface {
 
 // httpClientMetrics is a struct that allows to write metrics of count and latency of http requests
 type httpClientMetric struct {
-	reqs    *prometheus.CounterVec
-	latency *prometheus.HistogramVec
+	isNeedToRemoveQueryInPath bool
+	reqs                      *prometheus.CounterVec
+	latency                   *prometheus.HistogramVec
 }
 
 var _ HttpClientMetric = (*httpClientMetric)(nil)
 
-func NewHttpClientMetrics(namespace, subsystem, service, remoteService string) *httpClientMetric {
+func NewHttpClientMetrics(namespace, subsystem, service, remoteService string, isNeedToRemoveQueryInPath bool) *httpClientMetric {
 	reqsCollector := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "client_reqs_count",
@@ -51,18 +53,29 @@ func NewHttpClientMetrics(namespace, subsystem, service, remoteService string) *
 	prometheus.MustRegister(reqsCollector, latencyCollector)
 
 	return &httpClientMetric{
-		reqs:    reqsCollector,
-		latency: latencyCollector,
+		isNeedToRemoveQueryInPath: isNeedToRemoveQueryInPath,
+		reqs:                      reqsCollector,
+		latency:                   latencyCollector,
 	}
+}
+
+func (h *httpClientMetric) checkAndCutPath(path *string) {
+	if h.isNeedToRemoveQueryInPath {
+		return
+	}
+	*path = strings.Split(*path, "?")[0]
+	return
 }
 
 // Inc increases requests counter by one. method, code and path are label values for "method", "status" and "path" fields
 func (h *httpClientMetric) Inc(method, code, path string) {
+	h.checkAndCutPath(&path)
 	h.reqs.WithLabelValues(method, code, path).Inc()
 }
 
 // WriteTiming writes time elapsed since the startTime.
 // method, code and path are label values for "method", "status" and "path" fields
 func (h *httpClientMetric) WriteTiming(startTime time.Time, method, code, path string) {
+	h.checkAndCutPath(&path)
 	h.latency.WithLabelValues(method, code, path).Observe(MillisecondsFromStart(startTime))
 }
