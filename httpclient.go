@@ -60,7 +60,7 @@ func NewHttpClientMetrics(namespace, subsystem, service, remoteService string, i
 }
 
 func (h *httpClientMetric) checkAndCutPath(path *string) {
-	if h.isNeedToRemoveQueryInPath {
+	if !h.isNeedToRemoveQueryInPath {
 		return
 	}
 	*path = strings.Split(*path, "?")[0]
