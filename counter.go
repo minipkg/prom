@@ -9,12 +9,17 @@ type counter struct {
 
 // NewCounter creates a new named counter for the app
 // labels represent the actions which will be counted
-func NewCounter(appName, name string, labels ...string) *counter {
+func NewCounter(namespace, subsystem, service, counterName, subject string, labels ...string) *counter {
 	c := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name:        name,
-			Help:        "Counts " + name,
-			ConstLabels: prometheus.Labels{"app": appName},
+			Name: counterName,
+			Help: "Counts " + counterName,
+			ConstLabels: prometheus.Labels{
+				"namespace": namespace,
+				"subsystem": subsystem,
+				"service":   service,
+				"subject":   subject,
+			},
 		},
 		labels,
 	)
