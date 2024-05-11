@@ -6,7 +6,9 @@ import (
 
 type Gauge interface {
 	Add(valueName string, value float64)
+	AddWithLabelValues(labelValues *[]string, value float64)
 	Set(valueName string, value float64)
+	SetWithLabelValues(labelValues *[]string, value float64)
 }
 
 // gauge is a struct that allows to add values
@@ -43,7 +45,17 @@ func (g *gauge) Add(valueName string, value float64) {
 	g.gaugeVec.WithLabelValues(valueName).Add(value)
 }
 
+// Add function adds a given value to the gauge
+func (g *gauge) AddWithLabelValues(labelValues *[]string, value float64) {
+	g.gaugeVec.WithLabelValues((*labelValues)...).Add(value)
+}
+
 // Set function sets a given value to the gauge
 func (g *gauge) Set(valueName string, value float64) {
 	g.gaugeVec.WithLabelValues(valueName).Set(value)
+}
+
+// Set function sets a given value to the gauge
+func (g *gauge) SetWithLabelValues(labelValues *[]string, value float64) {
+	g.gaugeVec.WithLabelValues((*labelValues)...).Set(value)
 }
