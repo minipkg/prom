@@ -38,7 +38,17 @@ func (g *dbGauge) Add(valueName string, value float64) {
 	g.gaugeVec.WithLabelValues(valueName).Add(value)
 }
 
+// Add function adds a given value to the gauge
+func (g *dbGauge) AddWithLabelValues(labelValues *[]string, value float64) {
+	g.gaugeVec.WithLabelValues((*labelValues)...).Add(value)
+}
+
 // Set function sets a given value to the gauge
 func (g *dbGauge) Set(valueName string, value float64) {
 	g.gaugeVec.WithLabelValues(valueName).Set(value)
+}
+
+// Set function sets a given value to the gauge
+func (g *dbGauge) SetWithLabelValues(labelValues *[]string, value float64) {
+	g.gaugeVec.WithLabelValues((*labelValues)...).Set(value)
 }
