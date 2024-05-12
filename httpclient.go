@@ -75,8 +75,16 @@ func (h *httpClientMetric) checkAndCutPath(path *string) {
 	}
 
 	if h.cuttingPathOpts.boundaries4CuttingPath != nil {
-		sl := strings.Split(*path, "/")[int(h.cuttingPathOpts.boundaries4CuttingPath[0]):int(h.cuttingPathOpts.boundaries4CuttingPath[1])]
-		*path = strings.Join(sl, "/")
+		sl := strings.Split(*path, "/")
+		min := int(h.cuttingPathOpts.boundaries4CuttingPath[0])
+		if min >= len(sl) {
+			min = len(sl) - 1
+		}
+		max := int(h.cuttingPathOpts.boundaries4CuttingPath[1])
+		if max > len(sl) {
+			max = len(sl)
+		}
+		*path = strings.Join(sl[min:max], "/")
 	}
 	return
 }
