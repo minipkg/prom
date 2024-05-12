@@ -14,14 +14,19 @@ type HttpClientMetric interface {
 
 // httpClientMetrics is a struct that allows to write metrics of count and latency of http requests
 type httpClientMetric struct {
+	cuttingPathOpts CuttingPathOpts
+	reqs            *prometheus.CounterVec
+	latency         *prometheus.HistogramVec
+}
+
+type CuttingPathOpts struct {
 	isNeedToRemoveQueryInPath bool
-	reqs                      *prometheus.CounterVec
-	latency                   *prometheus.HistogramVec
+	boundaries4CuttingPath    *[2]uint
 }
 
 var _ HttpClientMetric = (*httpClientMetric)(nil)
 
-func NewHttpClientMetrics(namespace, subsystem, service, remoteService string, isNeedToRemoveQueryInPath bool) *httpClientMetric {
+func NewHttpClientMetrics(namespace, subsystem, service, remoteService string) *httpClientMetric {
 	reqsCollector := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "client_reqs_count",
@@ -53,17 +58,26 @@ func NewHttpClientMetrics(namespace, subsystem, service, remoteService string, i
 	prometheus.MustRegister(reqsCollector, latencyCollector)
 
 	return &httpClientMetric{
-		isNeedToRemoveQueryInPath: isNeedToRemoveQueryInPath,
-		reqs:                      reqsCollector,
-		latency:                   latencyCollector,
+		reqs:    reqsCollector,
+		latency: latencyCollector,
 	}
 }
 
+func (h *httpClientMetric) SetCuttingPathOpts(isNeedToRemoveQueryInPath bool, boundaries4CuttingPath *[2]uint) *httpClientMetric {
+	h.cuttingPathOpts.isNeedToRemoveQueryInPath = isNeedToRemoveQueryInPath
+	h.cuttingPathOpts.boundaries4CuttingPath = boundaries4CuttingPath
+	return h
+}
+
 func (h *httpClientMetric) checkAndCutPath(path *string) {
-	if !h.isNeedToRemoveQueryInPath {
-		return
+	if h.cuttingPathOpts.isNeedToRemoveQueryInPath {
+		*path = strings.Split(*path, "?")[0]
 	}
-	*path = strings.Split(*path, "?")[0]
+
+	if h.cuttingPathOpts.boundaries4CuttingPath != nil {
+		sl := strings.Split(*path, "/")[int(h.cuttingPathOpts.boundaries4CuttingPath[0]):int(h.cuttingPathOpts.boundaries4CuttingPath[1])]
+		*path = strings.Join(sl, "/")
+	}
 	return
 }
 
