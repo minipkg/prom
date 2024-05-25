@@ -2,6 +2,11 @@ package prometheus_utils
 
 import "github.com/prometheus/client_golang/prometheus"
 
+type Counter interface {
+	Inc(labelValues ...string)
+	Add(val int64, labelValues ...string)
+}
+
 // counter counts the events grouped by specified labels
 type counter struct {
 	*prometheus.CounterVec
