@@ -1,6 +1,7 @@
 package prometheus_utils
 
 import (
+	"regexp"
 	"strings"
 	"time"
 
@@ -14,14 +15,9 @@ type HttpClientMetric interface {
 
 // httpClientMetrics is a struct that allows to write metrics of count and latency of http requests
 type httpClientMetric struct {
-	cuttingPathOpts CuttingPathOpts
+	cuttingPathOpts *CuttingPathOpts
 	reqs            *prometheus.CounterVec
 	latency         *prometheus.HistogramVec
-}
-
-type CuttingPathOpts struct {
-	isNeedToRemoveQueryInPath bool
-	boundaries4CuttingPath    *[2]uint
 }
 
 var _ HttpClientMetric = (*httpClientMetric)(nil)
@@ -63,19 +59,22 @@ func NewHttpClientMetrics(namespace, subsystem, service, remoteService string) *
 	}
 }
 
-func (h *httpClientMetric) SetCuttingPathOpts(isNeedToRemoveQueryInPath bool, boundaries4CuttingPath *[2]uint) *httpClientMetric {
-	h.cuttingPathOpts.isNeedToRemoveQueryInPath = isNeedToRemoveQueryInPath
-	h.cuttingPathOpts.boundaries4CuttingPath = boundaries4CuttingPath
+func (h *httpClientMetric) SetCuttingPathOpts(cuttingPathOpts *CuttingPathOpts) *httpClientMetric {
+	h.cuttingPathOpts = cuttingPathOpts
 	return h
 }
 
-func (h *httpClientMetric) checkAndCutPath(path *string) {
+func (h *httpClientMetric) checkAndCutPath(path string) string {
+	if h.cuttingPathOpts == nil {
+		return path
+	}
+
 	if h.cuttingPathOpts.isNeedToRemoveQueryInPath {
-		*path = strings.Split(*path, "?")[0]
+		path = strings.Split(path, "?")[0]
 	}
 
 	if h.cuttingPathOpts.boundaries4CuttingPath != nil {
-		sl := strings.Split(*path, "/")
+		sl := strings.Split(path, "/")
 		min := int(h.cuttingPathOpts.boundaries4CuttingPath[0])
 		if min >= len(sl) {
 			min = len(sl) - 1
@@ -84,20 +83,32 @@ func (h *httpClientMetric) checkAndCutPath(path *string) {
 		if max > len(sl) {
 			max = len(sl)
 		}
-		*path = strings.Join(sl[min:max], "/")
+		path = strings.Join(sl[min:max], "/")
 	}
-	return
+
+	// remove ids from path
+	if h.cuttingPathOpts.isNeedToRemoveQueryInPath {
+		uintID := regexp.MustCompile("^[\\d,]+$")
+		sl := strings.Split(path, "/")
+		nsl := make([]string, 0, len(sl))
+		for _, s := range sl {
+			if !uintID.MatchString(s) {
+				nsl = append(nsl, s)
+			}
+		}
+		path = strings.Join(sl, "/")
+	}
+
+	return path
 }
 
 // Inc increases requests counter by one. method, code and path are label values for "method", "status" and "path" fields
 func (h *httpClientMetric) Inc(method, code, path string) {
-	h.checkAndCutPath(&path)
-	h.reqs.WithLabelValues(method, code, path).Inc()
+	h.reqs.WithLabelValues(method, code, h.checkAndCutPath(path)).Inc()
 }
 
 // WriteTiming writes time elapsed since the startTime.
 // method, code and path are label values for "method", "status" and "path" fields
 func (h *httpClientMetric) WriteTiming(startTime time.Time, method, code, path string) {
-	h.checkAndCutPath(&path)
-	h.latency.WithLabelValues(method, code, path).Observe(MillisecondsFromStart(startTime))
+	h.latency.WithLabelValues(method, code, h.checkAndCutPath(path)).Observe(MillisecondsFromStart(startTime))
 }

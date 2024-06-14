@@ -1,6 +1,7 @@
 package prometheus_utils
 
 import (
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -19,9 +20,15 @@ type HttpServerMetric interface {
 
 // httpServerMetrics is a struct that allows to write metrics of count and latency of http requests
 type httpServerMetric struct {
+	cuttingPathOpts *CuttingPathOpts
+	reqs            *prometheus.CounterVec
+	latency         *prometheus.HistogramVec
+}
+
+type CuttingPathOpts struct {
+	isNeedToRemoveIDsInPath   bool
 	isNeedToRemoveQueryInPath bool
-	reqs                      *prometheus.CounterVec
-	latency                   *prometheus.HistogramVec
+	boundaries4CuttingPath    *[2]uint
 }
 
 const (
@@ -30,7 +37,7 @@ const (
 
 var _ HttpServerMetric = (*httpServerMetric)(nil)
 
-func NewHttpServerMetrics(namespace, subsystem, service string, isNeedToRemoveQueryInPath bool) *httpServerMetric {
+func NewHttpServerMetrics(namespace, subsystem, service string) *httpServerMetric {
 	reqsCollector := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "reqs_count",
@@ -60,33 +67,65 @@ func NewHttpServerMetrics(namespace, subsystem, service string, isNeedToRemoveQu
 	prometheus.MustRegister(reqsCollector, latencyCollector)
 
 	return &httpServerMetric{
-		isNeedToRemoveQueryInPath: isNeedToRemoveQueryInPath,
-		reqs:                      reqsCollector,
-		latency:                   latencyCollector,
+		reqs:    reqsCollector,
+		latency: latencyCollector,
 	}
 }
 
-func (h *httpServerMetric) checkAndCutPath(path *string) {
-	if !h.isNeedToRemoveQueryInPath {
-		return
+func (h *httpServerMetric) SetCuttingPathOpts(cuttingPathOpts *CuttingPathOpts) *httpServerMetric {
+	h.cuttingPathOpts = cuttingPathOpts
+	return h
+}
+
+func (h *httpServerMetric) checkAndCutPath(path string) string {
+	if h.cuttingPathOpts == nil {
+		return path
 	}
-	*path = strings.Split(*path, "?")[0]
-	return
+
+	if h.cuttingPathOpts.isNeedToRemoveQueryInPath {
+		path = strings.Split(path, "?")[0]
+	}
+
+	if h.cuttingPathOpts.boundaries4CuttingPath != nil {
+		sl := strings.Split(path, "/")
+		min := int(h.cuttingPathOpts.boundaries4CuttingPath[0])
+		if min >= len(sl) {
+			min = len(sl) - 1
+		}
+		max := int(h.cuttingPathOpts.boundaries4CuttingPath[1])
+		if max > len(sl) {
+			max = len(sl)
+		}
+		path = strings.Join(sl[min:max], "/")
+	}
+
+	// remove ids from path
+	if h.cuttingPathOpts.isNeedToRemoveQueryInPath {
+		uintID := regexp.MustCompile("^[\\d,]+$")
+		sl := strings.Split(path, "/")
+		nsl := make([]string, 0, len(sl))
+		for _, s := range sl {
+			if !uintID.MatchString(s) {
+				nsl = append(nsl, s)
+			}
+		}
+		path = strings.Join(sl, "/")
+	}
+
+	return path
 }
 
 // Inc increases requests counter by one.
 //
 //	method, code, path and client are label values for "method", "status", "path" and "client" fields
 func (h *httpServerMetric) Inc(method, code, path, client string) {
-	h.checkAndCutPath(&path)
-	h.reqs.WithLabelValues(method, code, path, client).Inc()
+	h.reqs.WithLabelValues(method, code, h.checkAndCutPath(path), client).Inc()
 }
 
 // WriteTiming writes time elapsed since the startTime.
 // method, code, path and client are label values for "method", "status", "path" and "client" fields
 func (h *httpServerMetric) WriteTiming(startTime time.Time, method, code, path, client string) {
-	h.checkAndCutPath(&path)
-	h.latency.WithLabelValues(method, code, path, client).Observe(MillisecondsFromStart(startTime))
+	h.latency.WithLabelValues(method, code, h.checkAndCutPath(path), client).Observe(MillisecondsFromStart(startTime))
 }
 
 // Handler with metrics for "github.com/fasthttp/router"
