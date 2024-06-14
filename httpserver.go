@@ -26,9 +26,9 @@ type httpServerMetric struct {
 }
 
 type CuttingPathOpts struct {
-	isNeedToRemoveIDsInPath   bool
-	isNeedToRemoveQueryInPath bool
-	boundaries4CuttingPath    *[2]uint
+	IsNeedToRemoveQueryInPath bool
+	IsNeedToRemoveIDsInPath   bool
+	Boundaries4CuttingPath    *[2]uint
 }
 
 const (
@@ -82,17 +82,17 @@ func (h *httpServerMetric) checkAndCutPath(path string) string {
 		return path
 	}
 
-	if h.cuttingPathOpts.isNeedToRemoveQueryInPath {
+	if h.cuttingPathOpts.IsNeedToRemoveQueryInPath {
 		path = strings.Split(path, "?")[0]
 	}
 
-	if h.cuttingPathOpts.boundaries4CuttingPath != nil {
+	if h.cuttingPathOpts.Boundaries4CuttingPath != nil {
 		sl := strings.Split(path, "/")
-		min := int(h.cuttingPathOpts.boundaries4CuttingPath[0])
+		min := int(h.cuttingPathOpts.Boundaries4CuttingPath[0])
 		if min >= len(sl) {
 			min = len(sl) - 1
 		}
-		max := int(h.cuttingPathOpts.boundaries4CuttingPath[1])
+		max := int(h.cuttingPathOpts.Boundaries4CuttingPath[1])
 		if max > len(sl) {
 			max = len(sl)
 		}
@@ -100,7 +100,7 @@ func (h *httpServerMetric) checkAndCutPath(path string) string {
 	}
 
 	// remove ids from path
-	if h.cuttingPathOpts.isNeedToRemoveQueryInPath {
+	if h.cuttingPathOpts.IsNeedToRemoveQueryInPath {
 		uintID := regexp.MustCompile("^[\\d,]+$")
 		sl := strings.Split(path, "/")
 		nsl := make([]string, 0, len(sl))
