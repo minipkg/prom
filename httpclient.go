@@ -87,7 +87,7 @@ func (h *httpClientMetric) checkAndCutPath(path string) string {
 	}
 
 	// remove ids from path
-	if h.cuttingPathOpts.IsNeedToRemoveQueryInPath {
+	if h.cuttingPathOpts.IsNeedToRemoveIDsInPath {
 		uintID := regexp.MustCompile("^[\\d,]+$")
 		sl := strings.Split(path, "/")
 		nsl := make([]string, 0, len(sl))
