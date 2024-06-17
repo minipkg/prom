@@ -109,7 +109,7 @@ func (h *httpServerMetric) checkAndCutPath(path string) string {
 				nsl = append(nsl, s)
 			}
 		}
-		path = strings.Join(sl, "/")
+		path = strings.Join(nsl, "/")
 	}
 
 	return path
